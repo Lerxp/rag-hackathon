@@ -1,0 +1,38 @@
+body {
+  font-family: system-ui, sans-serif;
+  max-width: 800px;
+  margin: 2em auto;
+  line-height: 1.6;
+}
+
+h1 {
+  color: #333;
+}
+
+form {
+  margin-bottom: 1em;
+}
+
+input {
+  width: 70%;
+  padding: 0.5em;
+  font-size: 1em;
+}
+
+button {
+  padding: 0.5em 1em;
+  font-size: 1em;
+  cursor: pointer;
+}
+
+#answer {
+  background: #f7f7f7;
+  padding: 1em;
+  border-radius: 6px;
+}
+
+#matches {
+  margin-top: 1em;
+  font-size: 0.9em;
+  color: #555;
+}
