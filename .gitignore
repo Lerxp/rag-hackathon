@@ -4,3 +4,5 @@ data/chroma/c408d5e2-e56e-46dd-80fe-8c8486ecac6f/data_level0.bin
 data/chroma/c408d5e2-e56e-46dd-80fe-8c8486ecac6f/header.bin
 data/chroma/c408d5e2-e56e-46dd-80fe-8c8486ecac6f/length.bin
 data/chroma/c408d5e2-e56e-46dd-80fe-8c8486ecac6f/link_lists.bin
+__pycache__/*
+data/bm25_index.json
