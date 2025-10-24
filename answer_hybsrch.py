@@ -67,15 +67,39 @@ def retrieve(query: str, top_k: int = TOP_K):
 # Prompt construction
 # ------------------------------------
 def build_prompt(query, hits):
-    relevant = [h for h in hits if len(h) >= 3 and h[2] >= MIN_SCORE]
-    if not relevant:
-        relevant = hits[:2]
+    # --- Flatten & sanitize hits ---
+    cleaned_hits = []
+    for h in hits:
+        # handle malformed single values
+        if not isinstance(h, (list, tuple)):
+            continue
 
+        # case: ((text, meta), score, source)
+        if len(h) >= 3 and isinstance(h[0], (list, tuple)) and len(h[0]) == 2:
+            text, meta = h[0]
+            score = h[1]
+            source = h[2] if len(h) > 2 else "unknown"
+            cleaned_hits.append((text, meta, score, source))
+
+        # case: (text, meta, score, source) — expected
+        elif len(h) >= 3 and isinstance(h[2], (int, float)):
+            text = h[0]
+            meta = h[1]
+            score = h[2]
+            source = h[3] if len(h) > 3 else "unknown"
+            cleaned_hits.append((text, meta, score, source))
+
+    # --- Filter by score ---
+    relevant = [h for h in cleaned_hits if h[2] >= MIN_SCORE]
+    if not relevant:
+        relevant = cleaned_hits[:2]
+
+    # --- Build prompt context ---
     context_blocks, citations = [], []
     for i, (chunk, meta, score, source) in enumerate(relevant, 1):
         src = meta.get("source_file", "?")
         page = meta.get("page_number", "?")
-        label = f"{src} p.{page}"
+        label = f"{src} p.{page} [{source}]"
         context_blocks.append(f"[{i}] {label}\n{chunk}")
         citations.append(label)
 
@@ -91,7 +115,7 @@ def build_prompt(query, hits):
     - Provide a structured, detailed answer.
     - Be as thorough but as efficient as you can be in {approx_words} words or fewer.
     - If the answer is not fully supported, say "I don't know based on the provided documents."
-    - Cite sources inline as (File p.Page) at the END of each sentence you claim.
+    - Cite sources inline as (File p.Page [Source]) at the END of each sentence you claim.
     """).strip()
 
     user = textwrap.dedent(f"""
@@ -102,12 +126,12 @@ def build_prompt(query, hits):
     {context}
 
     INSTRUCTIONS:
-    - Use content verbatim where helpful.
-    - Include citations as ({cite_note}) after each supported claim.
-    - If multiple chunks support a claim, include both labels e.g. (DocA p.3; DocB p.7).
+    - Include source references like ({cite_note}) after each supported claim.
+    - Use content verbatim where appropriate.
     """).strip()
 
     return f"<SYSTEM>\n{system}\n</SYSTEM>\n<USER>\n{user}\n</USER>"
+
 
 # ------------------------------------
 # Generation
