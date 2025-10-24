@@ -1,4 +1,4 @@
-# 🧠 Local RAG Hybrid Search Tutorial (Windows / Cross-Platform)
+# Local RAG Hybrid Search Tutorial 
 
 This repository demonstrates a local **Retrieval-Augmented Generation (RAG)** pipeline using **Ollama**, **ChromaDB**, and **BM25+ hybrid search**, complete with both command-line and web interfaces.
 

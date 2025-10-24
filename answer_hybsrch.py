@@ -172,16 +172,31 @@ def generate_stream(prompt):
         "options": {"temperature": TEMPERATURE, "num_predict": NUM_PREDICT},
         "stream": True
     }
+
     t0 = time.perf_counter()
+    eval_count = prompt_eval_count = None
+
     with requests.post(url, json=payload, stream=True, timeout=ANSWER_TIMEOUT) as r:
         for line in r.iter_lines():
-            if line:
-                data = json.loads(line.decode("utf-8"))
-                if "response" in data:
-                    print(data["response"], end="", flush=True)
+            if not line:
+                continue
+            data = json.loads(line.decode("utf-8"))
+            # capture incremental output
+            if "response" in data:
+                print(data["response"], end="", flush=True)
+            # capture counters (appear only in final message)
+            if "eval_count" in data:
+                eval_count = data.get("eval_count")
+            if "prompt_eval_count" in data:
+                prompt_eval_count = data.get("prompt_eval_count")
+
     t1 = time.perf_counter()
     print()  # final newline
-    return {"generation_s": (t1 - t0)}
+    return {
+        "generation_s": (t1 - t0),
+        "eval_count": eval_count,
+        "prompt_eval_count": prompt_eval_count
+    }
 
 # ------------------------------------
 # Main
