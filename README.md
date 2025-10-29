@@ -16,6 +16,10 @@ rag-starter/
 │   ├── bm25_index.json    # Lexical index (BM25+) from Chroma docs
 │   └── docs/              # Place your PDFs here
 │
+├── static/
+│   ├── index.html        # Static demo frontend for FastAPI demo (app_fastapi.py)
+│   └── style.css         # Styling for static frontend
+│
 ├── ingest.py              # Chunk + embed documents into ChromaDB
 ├── bm25_index.py          # Build BM25+ lexical index
 ├── bm25_query.py          # Query BM25+ index (auto-builds if missing)
@@ -25,11 +29,8 @@ rag-starter/
 ├── answer_hybsrch.py      # Hybrid RAG (vector + BM25), streaming, timing
 │
 ├── app_fastapi.py         # REST API with FastAPI (JSON responses)
-├── app_gradio.py          # Local chat interface using Gradio
-│
-├── index.html             # Static demo frontend
-├── style.css              # Styling for static frontend
-└── requirements.txt       # (optional) dependencies list
+└── app_gradio.py          # Local chat interface using Gradio
+
 ```
 
 ---
