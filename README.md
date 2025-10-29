@@ -18,7 +18,8 @@ rag-starter/
 │
 ├── static/
 │   ├── index.html        # Static demo frontend for FastAPI demo (app_fastapi.py)
-│   └── style.css         # Styling for static frontend
+│   ├── style.css         # Styling for static frontend
+│   └── script.js         # Frontend logic (JSON or streamed text handling)
 │
 ├── ingest.py              # Chunk + embed documents into ChromaDB
 ├── bm25_index.py          # Build BM25+ lexical index
@@ -140,9 +141,11 @@ python answer_hybsrch.py "Describe the process for requesting paid leave."
 ## 🌐 Web Interfaces
 
 ### ⚙️ FastAPI Server (`app_fastapi.py`)
-- Serves `/ask?query=...`
-- Calls `answer_hybsrch` internally  
-- Returns JSON answers + match metadata  
+- Serves the static demo at `/` (loads `/static/style.css` and `/static/script.js`).
+- Answers questions via `/ask?query=...` using the hybrid pipeline.
+- Response mode is controlled by `.env` `STREAM_OUTPUT`:
+  - `false` → returns JSON `{ answer, timing, matches }`.
+  - `true`  → streams plain text tokens; matches are provided in `X-Matches` header.
 
 **Start:**
 ```bash
@@ -152,6 +155,14 @@ Visit:
 ```
 http://127.0.0.1:8000/ask?query=How+to+report+a+workplace+incident
 ```
+
+Or open the static frontend:
+```
+http://127.0.0.1:8000/
+```
+The page script (`static/script.js`) automatically adapts to the API response:
+- If `application/json`, it renders the full answer and matches.
+- If `text/plain` streaming, it shows matches from the `X-Matches` header and appends streamed tokens live.
 
 ---
 

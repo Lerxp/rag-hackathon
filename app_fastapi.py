@@ -8,9 +8,10 @@ Intended for local-only use; host/port are set to loopback by default.
 """
 
 from fastapi import FastAPI, Query
-from fastapi.responses import JSONResponse, FileResponse
+from fastapi.responses import JSONResponse, FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 import answer_hybsrch  # imports retrieve(), build_prompt(), generate()
+import requests, json  # proxy streaming to Ollama when enabled
 
 # Local-only config (binds to loopback by default)
 LOCAL_HOST = "127.0.0.1"
@@ -24,25 +25,70 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 def home():
     """Serve static frontend root (index.html)."""
     # Returning a path string works with response_class=FileResponse
-    return "static/index.html"
+    return FileResponse("static/index.html")
 
 @app.get("/ask")
 def ask(query: str = Query(..., description="User question")):
-    """Answer a user question using hybrid RAG and return JSON."""
+    """Answer a user question using hybrid RAG.
+
+    Streaming behavior is controlled by `.env` via `answer_hybsrch.STREAM_OUTPUT`.
+    - When false: returns JSON with answer, timing, and matches.
+    - When true: returns a StreamingResponse of plain text tokens and sets
+      an `X-Matches` header with a compact JSON of the matches.
+    """
     # Retrieve top matches using vector + BM25 hybrid strategy
     hits, _ = answer_hybsrch.retrieve(query)
     if not hits:
         return JSONResponse({"answer": "No results found."})
 
-    # Build grounded prompt and generate an answer (non-streaming)
+    # Build grounded prompt
     prompt = answer_hybsrch.build_prompt(query, hits)
-    answer_text, timing = answer_hybsrch.generate(prompt)
 
-    # Summarize matches for the client; include source, page and score
+    if answer_hybsrch.STREAM_OUTPUT:
+        # Prepare compact match summary for clients to render alongside stream
+        matches_summary = [
+            {
+                "source": h[1].get("source_file"),
+                "page": h[1].get("page_number"),
+                "score": round(h[2], 3),
+                "origin": h[3] if len(h) > 3 else "unknown",
+            }
+            for h in hits
+        ]
+
+        def token_stream():
+            url = f"{answer_hybsrch.OLLAMA_URL}/api/generate"
+            payload = {
+                "model": answer_hybsrch.LLM_MODEL,
+                "prompt": prompt,
+                "options": {
+                    "temperature": answer_hybsrch.TEMPERATURE,
+                    "num_predict": answer_hybsrch.NUM_PREDICT,
+                },
+                "stream": True,
+            }
+            with requests.post(
+                url, json=payload, stream=True, timeout=answer_hybsrch.ANSWER_TIMEOUT
+            ) as r:
+                for line in r.iter_lines():
+                    if not line:
+                        continue
+                    data = json.loads(line.decode("utf-8"))
+                    if "response" in data:
+                        yield data["response"]
+
+        return StreamingResponse(
+            token_stream(),
+            media_type="text/plain; charset=utf-8",
+            headers={"X-Matches": json.dumps(matches_summary)},
+        )
+
+    # Non-streaming JSON response
+    answer_text, timing = answer_hybsrch.generate(prompt)
     return {
         "query": query,
         "answer": answer_text,
-        "timing": timing,  # optional but useful
+        "timing": timing,
         "matches": [
             {
                 "source": h[1].get("source_file"),
