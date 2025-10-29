@@ -1,4 +1,8 @@
+backup.env
 /.rag-venv
 data/chroma/*
 __pycache__/*
 data/bm25_index.json
+backup-env.txt
+.env
+
