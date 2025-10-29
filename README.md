@@ -208,7 +208,7 @@ source .rag-venv/bin/activate
 
 ### 2. Install Dependencies
 ```bash
-pip install chromadb pymupdf python-dotenv requests fastapi uvicorn gradio
+pip install chromadb pymupdf python-dotenv requests fastapi uvicorn gradio ollama
 ```
 
 ---
