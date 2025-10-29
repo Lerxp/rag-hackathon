@@ -1,3 +1,14 @@
+"""Hybrid search RAG: dense vectors (Chroma) + BM25 fallback.
+
+Flow:
+- Retrieve top-k results from ChromaDB (vector similarity) and from BM25 index.
+- Merge and deduplicate by (source_file, page_number), sort by score.
+- Build a grounded prompt with inline citations and source tags.
+- Generate an answer via Ollama, with optional streaming and basic timing.
+
+Environment variables control paths, models, and thresholds (see Config).
+"""
+
 import os, sys, json, time, requests, textwrap
 from dotenv import load_dotenv
 import chromadb
@@ -7,6 +18,7 @@ from chromadb.utils import embedding_functions
 # Config
 # ------------------------------------
 load_dotenv()
+# Configuration (overridable via environment variables)
 CHROMA_DIR      = os.getenv("CHROMA_DIR", "./data/chroma")
 EMBED_MODEL     = os.getenv("EMBED_MODEL", "nomic-embed-text")
 OLLAMA_URL      = os.getenv("OLLAMA_URL", "http://localhost:11434")
@@ -22,21 +34,31 @@ STREAM_OUTPUT   = os.getenv("STREAM_OUTPUT", "true").lower() == "true"
 # Helpers
 # ------------------------------------
 def approx_tokens_to_words(tokens: int) -> int:
-    # ~0.5 words per token (safe average for English text)
+    """Rough conversion from tokens to words (~0.5 words/token).
+
+    Used only for user-facing guidance on response length.
+    """
     return int(tokens * 0.5)
 
 # ------------------------------------
 # Retrieval
 # ------------------------------------
 def retrieve(query: str, top_k: int = TOP_K):
-    """Hybrid retrieval: dense (Chroma) + lexical (BM25)"""
+    """Hybrid retrieval: dense (Chroma) + lexical (BM25).
+
+    - Queries Chroma for vector-similar chunks and converts cosine distance to
+      similarity via `1.0 - distance`.
+    - Queries BM25 index if available and tags results with their source.
+    - Deduplicates on (source_file, page_number) to avoid repeated context.
+    - Returns top_k merged results plus retrieval latency in seconds.
+    """
     t0 = time.perf_counter()
     client = chromadb.PersistentClient(path=CHROMA_DIR)
     embedder = embedding_functions.OllamaEmbeddingFunction(model_name=EMBED_MODEL, url=OLLAMA_URL)
     col = client.get_or_create_collection("docs", embedding_function=embedder)
     res = col.query(query_texts=[query], n_results=top_k, include=["documents", "metadatas", "distances"])
     vector_hits = [
-        (doc, meta, 1.0 - dist, "vector")    # 🟩 mark vector source
+        (doc, meta, 1.0 - dist, "vector")    # mark vector source
         for doc, meta, dist in zip(res["documents"][0], res["metadatas"][0], res["distances"][0])
     ]
 
@@ -44,7 +66,7 @@ def retrieve(query: str, top_k: int = TOP_K):
     try:
         from bm25_query import query_bm25
         bm25_hits_raw = query_bm25(query, top_k=top_k)
-        bm25_hits = [(doc, meta, score, "bm25") for doc, meta, score in bm25_hits_raw]  # 🟦 mark BM25 source
+        bm25_hits = [(doc, meta, score, "bm25") for doc, meta, score in bm25_hits_raw]  # mark BM25 source
     except Exception as e:
         print(f"[warn] BM25 fallback failed: {e}")
         print("Confirm that your index exists. Delete it and rerun bm25_index.py if necessary.")
@@ -67,6 +89,13 @@ def retrieve(query: str, top_k: int = TOP_K):
 # Prompt construction
 # ------------------------------------
 def build_prompt(query, hits):
+    """Create a prompt with cleaned, deduped, and tagged context.
+
+    - Normalizes hit tuples to (text, meta, score, source).
+    - Filters by `MIN_SCORE`, with a small fallback context if none pass.
+    - Labels each block with filename, page, and the source type (vector/bm25).
+    - Truncates overly long context to keep prompt size reasonable.
+    """
     # --- Flatten & sanitize hits ---
     cleaned_hits = []
     for h in hits:
@@ -137,6 +166,7 @@ def build_prompt(query, hits):
 # Generation
 # ------------------------------------
 def generate(prompt):
+    """Synchronous generation call to Ollama with timing metadata."""
     t0 = time.perf_counter()
     r = requests.post(
         f"{OLLAMA_URL}/api/generate",
@@ -165,6 +195,7 @@ def generate(prompt):
     return data.get("response", "").strip(), timing
 
 def generate_stream(prompt):
+    """Streaming generation from Ollama; prints tokens and returns timing/counters."""
     url = f"{OLLAMA_URL}/api/generate"
     payload = {
         "model": LLM_MODEL,
@@ -202,6 +233,7 @@ def generate_stream(prompt):
 # Main
 # ------------------------------------
 def main():
+    """CLI entry: run hybrid retrieval, generate answer, and print summary."""
     query = " ".join(sys.argv[1:]) if len(sys.argv) > 1 else input("Question: ").strip()
 
     hits, t_retrieval = retrieve(query)
