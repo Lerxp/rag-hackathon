@@ -243,8 +243,8 @@ Below is a conceptual flow of how **Hybrid Retrieval-Augmented Generation** oper
            ┌─────────────────────┴─────────────────────┐
            │                                           │
    ┌───────▼────────┐                         ┌────────▼────────┐
-   │  Chroma Vector  │                         │   BM25+ Lexical │
-   │   Retrieval     │                         │   Retrieval     │
+   │  Chroma Vector │                         │   BM25+ Lexical │
+   │   Retrieval    │                         │   Retrieval     │
    └───────┬────────┘                         └────────┬────────┘
            │                                           │
            └──────────────┬──────────────┬─────────────┘
