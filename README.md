@@ -137,6 +137,31 @@ python answer_hybsrch.py "Describe the process for requesting paid leave."
 ```
 
 ---
+### Walkthroughs
+
+Below are concise, platform-specific notes to help you get running smoothly.
+
+Windows
+- If Ollama output looks mangled in PowerShell, try the VS Code integrated PowerShell terminal or the classic `cmd.exe` terminal.
+  
+  Full walkthrough: https://chatgpt.com/share/68f40da9-ac30-8013-9b00-a95a09b2d7c8
+
+macOS: 
+- Install the Ollama runtime with Homebrew:
+  ```bash
+  brew install ollama
+  ```
+  
+  Full walkthrough: https://chatgpt.com/share/68f41df6-5ec4-8013-a73b-b4cb94145c72
+
+Linux
+- To avoid port conflicts when running Ollama in Docker, stop and disable the host service:
+  ```bash
+  sudo systemctl stop ollama
+  sudo systemctl disable ollama
+  ```
+  
+  Full walkthrough: https://chatgpt.com/share/68f418c7-a040-8013-9814-06fb6337dda9
 
 ## 🌐 Web Interfaces
 
